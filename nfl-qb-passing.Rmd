@@ -1,0 +1,343 @@
+---
+title: "NFL Quarterback passing"
+author: "Andrew Mellor"
+date: "06/05/2020"
+output:
+  html_document:
+    toc: true
+    toc_depth: 3
+---
+
+```{r Setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Overview
+
+The purpose of this document is to answer these questions:
+
+**How does passer rating relate to success?
+We can use the number of wins (wins) a team has when a particular quarterback starts as a measure of success. And then the questions we are trying to answer now are:
+Do quarterbacks with a higher passer rating have more wins?
+Do quarterbacks with a lower passer rating have fewer wins?
+How many wins can we expect to get when we have a starting quarterback with a particular passer rating?**
+
+We can use simple linear regression to answer these questions.
+
+## Load required packages
+
+```{r Packages, message=FALSE}
+#Include all required packages at the start
+library(tidyverse) 
+library(ggplot2)
+library(broom)
+```
+
+## Data
+
+The data we will be using for this activity can be found in the 2019_nfl_qb_data.csv file and contains Quarterback stats for all quarterbacks in the 2019 NFL season. It has been sourced from [pro-football-reference.com](https://www.pro-football-reference.com/years/2019/passing) and consists of the following variables:
+
+The [data](https://unicanberra.instructure.com/courses/7493/files/1778304) was provided by Dr Jocelyn Mara from the University of Canberra^[University of Canberra. Applied Data Analysis in Sport PG (10157)].
+
+**It is probably important to note some of the data points that are not self explanatory:**
+
+1. case_no: unique observation identification number
+
+2. player_name: quarterback player name
+
+3. player_id: unique player identification number
+
+4. team: team the quarterback plays for in the NFL
+
+5. age: age of player in years
+
+6. position: Uppercase QB indicates a primary starting quarterback, while lowercase qb
+
+7. indicates a secondary quarterback
+
+8. games_played: number of games played
+
+9. games_started: number of games started
+
+10. wins: number of games won when starting
+
+11. losses: number of games lost when starting
+
+12. draws: number of games drawn when starting
+
+13. completions: number of passes completed
+
+14. attempts: number of passes attempted
+
+15. cmp_pc: passes completed as a percentage of passes attempted
+
+16. yards: yards gained by passing
+
+17. touchdowns: number of passing touchdowns
+
+18. touchdown_pc: passing touchdowns as a percentage of passes attempted
+
+19. interceptions: number of interceptions
+
+20. interceptions_pc: interceptions as a percentage of passes attempted
+
+21. passer_rating: Passer rating (also known as quarterback rating). For a description of the Passer rating see [here](https://en.wikipedia.org/wiki/Passer_rating)
+
+22. sacks: number of [sacks](https://en.wikipedia.org/wiki/Quarterback_sack)
+
+23. yards_lost: number of yards lost due to sacks
+
+24. sack_pc: sacks as a percentage of passes attempted
+
+25. Each row is one players total stats for the 2019 season.
+
+## Read in Data
+
+Read in the `2019_nfl_qb_data.csv` file using the `read_csv()` function from the `readr` package. 
+
+```{r Read_Data, message=FALSE} 
+#Read in the data
+#data dir should be in the working directory
+df <- read_csv("data/2019_nfl_qb_data.csv") 
+```
+
+## Checking the data
+```{r Structure, message=FALSE, results='hide'}
+str(df) #provides structure of df
+
+
+head(df) #shows first 6 rows of df
+
+
+tail(df) #shows last 6 rows of df
+```
+
+
+```{r Na, message=FALSE, results='hide'}
+#Check for missing values
+sum(is.na(df)) 
+```
+
+## Data Transformation
+For this step, do the following in one sequence of code:
+
+1. filter the data so only quarterbacks that have started a minimum of 10 games are included,
+2. create a new variable called win_percentage, that expresses the number of wins as a percentage of games_started
+Save the result in a new object.
+````{r Data Transformation}
+#Create win_percentage
+df2 <- df %>%
+filter(games_started >= 10) %>%
+mutate(win_percentage = wins / games_started * 100)
+
+view(df2)
+````
+
+## Exploratory analysis
+
+### Relationship between passer_rating and win_percentage
+
+```` {r Plot1, echo=FALSE}
+#Plot the relationship between paser_rating (x-axis) & win_percentage (y-axis)
+ggplot(df2, aes(x = passer_rating, y = win_percentage))+
+geom_point(alpha = 0.5, colour = "darkgreen")+
+geom_hline(yintercept = 50, colour = "red", linetype = "dashed")+
+geom_smooth(method = "lm", colour = "blue")+
+theme_gray()
+````
+
+Here we can see our initial results showing some sort of relationship, **it is positive (that is as the x value increases so does the y value)**, x = passer_rating and y= win_percentage for our Quarterbacks.
+
+```{r Correlation Coefficient1}
+#Check if there is a correlation
+cor (x = df2$passer_rating, y = df2$win_percentage, method = "pearson")
+````
+
+As suggested the correlation is positive, but it is not strong as it is not that close to 1.
+
+## Simple Linear Regression
+
+```` {r Linear Regression}
+#Check the data relating a a simple linear regression
+fit <- lm(win_percentage ~ passer_rating, data = df2)
+
+summary(fit)
+
+tidy(fit, conf.int = TRUE)
+````
+
+The intercept, which is a measure of Y, when X = 0. The data tells us that **a Quarterback with a passer_rating of 0, should on average have a win_percentage of -50.730711. This is not possible as a Quarterback cannot have a win_percentage of less than 0.**
+
+If we look at the confidence intervals, the best case scenario for a Quarterback with a passer_rating of 0 is still -5.393196, worst case scenario is -96.068227
+
+The slope, is a measure of how much Y changes if we increase X by 1. In this case **if we can increase our passer_rating by 1, then we will increase our win_percentage by 1.124823.**
+
+We can look at the confidence intervals using our equation for predicted values:
+Y = Intercept + (passer_rating * Slope)
+y = b + mx
+
+Quarterback with a passer_rating of 100
+
+```` {r Equations}
+100*1.605274 + -5.393196 #highest win %
+
+100*0.644371 + -96.068227 #lowest win %
+
+100*1.124823 + -50.73711 #probable win %
+````
+
+What these calculations show is is the **range of winning percentages for a Quarterback with a passer-rating of 110 exceed realistic probabilities.**
+
+
+## Independence of Observations
+````{r Durbin-Watson}
+#Determine if the observations are independent
+car::durbinWatsonTest(fit)
+````
+
+The Durbin-Watson statistic shows:
+a value of approximately 2 (2.37), indicating that there is no correlation between the residuals and that we have independence of observations.
+
+## Outliers
+````{r Outliers}
+#Check the data for outliers
+std_res <- rstandard(fit)
+points <- 1:length(std_res)
+
+ggplot(data = NULL, aes(x = points, y = std_res)) +
+geom_point(colour = "darkgreen") +
+ylim(c(-4, 4)) +
+geom_hline(yintercept = c(-3, 3), colour = "red", linetype = "dashed")
+````
+
+There do not appear to be any outliers as **all the data points are within 3 standard deviations from 0.**
+
+## Leverage Points
+````{r Leverage Points}
+#Check to see if any of the potential outliers create leverage
+hats <- hatvalues(fit)
+
+ggplot(data = NULL, aes(x = points, y = hats)) +
+geom_point(colour = "darkgreen")
+````
+
+There do not appear to be any leverage points as **all hatvalues are closer to 0 than 1.**
+
+### Further investigation of the points greater than 0.125 to ensure no leverage.
+````{r Leverage Points2}
+hat_labels <- if_else(hats >= 0.125, paste(points), "")
+
+ggplot(data = NULL, aes(x = points, y = hats)) +
+geom_point(colour = "darkgreen") +
+geom_text(aes(label = hat_labels), nudge_y = 0.01)
+````
+```` {r Leverage Points3}
+ggplot(df2, aes(x = passer_rating, y = win_percentage))+
+geom_point(alpha = 0.5, colour = "darkgreen")+
+geom_hline(yintercept = 50, colour = "red", linetype = "dashed")+
+geom_smooth(method = "lm", colour = "blue")+
+theme_gray()+
+geom_text(aes(label = hat_labels), nudge_y = 5)
+````
+
+These three points (26, 27 & 28) **do not seem to show overly high levels of leverage or influence.**
+
+## Influential Points
+````{r Cooks Distance}
+#Check for influence on the linear regression by potential outliers
+cook <-cooks.distance(fit)
+cook_labels <- if_else(cook >= 0.075, paste(points), "")
+
+ggplot(data = NULL, aes(x =points, y = cook)) +
+geom_point(colour = "darkgreen")+
+geom_text(aes(label = cook_labels), nudge_y =0.01)
+````
+
+````{r Cooks Distance2}
+ggplot(df2, aes(x = passer_rating, y = win_percentage))+
+geom_point(alpha = 0.5, colour = "darkgreen")+
+geom_hline(yintercept = 50, colour = "red", linetype = "dashed")+
+geom_smooth(method = "lm", colour = "blue")+
+theme_gray()+
+geom_text(aes(label = cook_labels), nudge_y = 5)
+````
+
+It would appear that are two points (4 & 11) that are potentially influencing the data, and possibly point 28.
+
+Point 4 appears to be a low leverage & low influence point.
+
+Point 11 can be deemed as high leverage and high influence.
+
+Point 28 may have a moderate leverage and moderate influence.
+
+We should re-run our analysis removing points 11 & 28. Object 28 is however case_no 29.
+
+## Re-run Linear Regression
+````{r Outliers2}
+#Removal of high influence points
+outliers <- c(11, 29) #Object 28 is however case_no 29.
+filtered_df2 <- df2 %>%
+  filter(!case_no %in% outliers)
+````
+
+```` {r Linear Regression2}
+fit2 <- lm(win_percentage ~ passer_rating, data = filtered_df2)
+
+summary(fit2)
+
+tidy(fit2, conf.int = TRUE)
+````
+
+````{r Plot2} 
+#High influence points removed and re-run our intital model
+ggplot(filtered_df2, aes(x = passer_rating, y = win_percentage))+
+geom_point(alpha = 0.5, colour = "darkgreen")+
+geom_hline(yintercept = 50, colour = "red", linetype = "dashed")+
+geom_smooth(method = "lm", colour = "blue")+
+theme_light()
+````
+There appears to minimal change to:
+slope
+intercept
+R-squared value
+
+so it appears that there is no need to remove this potential High Influence data points.
+
+## Homoscedasticity
+````{r Homoscedasticity}
+#Plotting of the residuals against the fitted values
+res <- residuals(fit)
+fitted <- predict(fit)
+
+ggplot(df2, aes(x = fitted, y = res))+
+geom_point(colour = "purple")+
+geom_hline(yintercept = 0, colour = "red", linetype = "dashed")+
+geom_smooth(se = FALSE)
+````
+There appears to be no evidence of heteroscedasticity.
+
+### Normality
+````{r Normality}
+#Is there a normal distribution
+
+ggplot(data =NULL, aes(x= res))+
+  geom_histogram( colour = "white", fill = "blue", binwidth = 10)
+````
+
+````{r Q-Q Plot}
+ggplot(data = NULL, aes(sample =res))+
+  stat_qq() + stat_qq_line()
+````
+
+The data points appear moderately normally distributed.
+
+## Interpretation
+
+**Considering the original questions, which were:
+Do quarterbacks with a higher passer rating have more wins?
+Do quarterbacks with a lower passer rating have fewer wins?
+How many wins can we expect to get when we have a starting quarterback with a particular passer rating?**
+
+The data has a moderate correlation between Quarterback passer_rating and win_percentage. However, further exploratory analysis shows that passer_rating should not be the only metric used. 
+
+On average if a Quarterback can improve their passer_rating 1 point, they can improve their teams win_percentage 1.12%, so an improvement of 20 passer_rating points can make a significant difference (22%) to a teams prospect of winning games and being successful.
